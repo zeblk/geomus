@@ -5,6 +5,7 @@ from constants import (
     ICON_EMPTY,
     INITIAL_DISTRIBUTION,
     PLANT_SPREAD_PROB,
+    ANIMAL_REPRODUCE_PROB,
 )
 from species import Plant, Animal, Organism
 
@@ -76,9 +77,15 @@ class Grid:
                     continue
                 org = self.grid[r][c]
                 if isinstance(org, Animal):
+                    # animals lose energy each step and may starve
+                    org.energy -= 1
+                    if org.energy <= 0:
+                        continue  # animal dies
+
                     destinations = self.neighbors(r, c)
                     random.shuffle(destinations)
                     moved = False
+                    ate = False
                     # Hunt or graze
                     prey_types = {'Wolf': ['Rabbit', 'Deer']}.get(org.name, ['Grass', 'Shrub', 'Tree'])
                     for nr, nc in destinations:
@@ -87,6 +94,7 @@ class Grid:
                             new_grid[nr][nc] = org
                             processed.add((nr, nc))
                             moved = True
+                            ate = True
                             break
                     if not moved:
                         # move to empty space
@@ -99,6 +107,14 @@ class Grid:
                     if not moved:
                         new_grid[r][c] = org
                         processed.add((r, c))
+
+                    if ate:
+                        # restore energy and possibly reproduce
+                        org.energy = org.max_energy
+                        if random.random() < ANIMAL_REPRODUCE_PROB.get(org.name, 0):
+                            if new_grid[r][c] is None:
+                                new_grid[r][c] = Animal(org.name)
+                                processed.add((r, c))
                 elif org and not isinstance(org, Plant):
                     new_grid[r][c] = org
         self.grid = new_grid
